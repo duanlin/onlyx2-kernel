@@ -6,8 +6,8 @@
 #include <stdint.h>
 
 
-#define BIT_GET(ADDR, INDEX) ((*((volatile uint8_t*)(ADDR) + (INDEX) / 8) & (0x01 << (INDEX) % 8)) ? 0b1 : 0b0)
-#define BIT_SET(BITS, INDEX, VALUE) ((VALUE) ? (*((volatile uint8_t*)(ADDR) + (INDEX) / 8) |= 0x01 << (INDEX) % 8) : (*((volatile uint8_t*)(ADDR) + (INDEX) / 8) &= ~(0x01 << (INDEX) % 8)))
+#define BIT_GET(VAR, INDEX) ((VAR) & (0x0000000000000001 << (INDEX)) ? 0b1 : 0b0)
+#define BIT_SET(VAR, INDEX, BIT) ((BIT) ? ((VAR) |= 0x0000000000000001 << (INDEX)) : ((VAR) &= ~(0x0000000000000001 << (INDEX))))
 
 #define REG16_GET(ADDR) (*(volatile uint16_t*)(ADDR))
 #define REG16_SET(ADDR, VALUE) (*(volatile uint16_t*)(ADDR) = (uint16_t)(VALUE))
