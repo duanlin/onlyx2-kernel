@@ -46,10 +46,10 @@ static inline uint16_t REG16_GET_RANGE(uintptr_t ADDR, unsigned HIGH, unsigned L
 	unsigned i; \
 	uint16_t mask; \
 	\
-	for(mask = 0, i = LOW; i <= HIGH; i ++) \
+	for(mask = 0, i = (LOW); i <= (HIGH); i ++) \
 		mask |= 0x0001 << i; \
 	\
-	REG16_ENCODE(ADDR, mask, VALUE << LOW); \
+	REG16_ENCODE(ADDR, mask, (VALUE) << (LOW)); \
 	\
 } while(false)
 
@@ -69,10 +69,10 @@ static inline uint32_t REG32_GET_RANGE(uintptr_t ADDR, unsigned HIGH, unsigned L
 	unsigned i; \
 	uint32_t mask; \
 	\
-	for(mask = 0, i = LOW; i <= HIGH; i ++) \
+	for(mask = 0, i = (LOW); i <= (HIGH); i ++) \
 		mask |= 0x00000001 << i; \
 	\
-	REG32_ENCODE(ADDR, mask, VALUE << LOW); \
+	REG32_ENCODE(ADDR, mask, (VALUE) << (LOW)); \
 	\
 } while(false)
 
@@ -92,10 +92,10 @@ static inline uint64_t REG64_GET_RANGE(uintptr_t ADDR, unsigned HIGH, unsigned L
 	unsigned i; \
 	uint64_t mask; \
 	\
-	for(mask = 0, i = LOW; i <= HIGH; i ++) \
+	for(mask = 0, i = (LOW); i <= (HIGH); i ++) \
 		mask |= 0x0000000000000001 << i; \
 	\
-	REG64_ENCODE(ADDR, mask, VALUE << LOW); \
+	REG64_ENCODE(ADDR, mask, (VALUE) << (LOW)); \
 	\
 } while(false)
 
