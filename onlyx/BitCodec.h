@@ -30,6 +30,29 @@
 #define REG64_DECODE(ADDR, MASK) (*(volatile uint64_t*)(ADDR) & (uint64_t)(MASK))
 #define REG64_ENCODE(ADDR, MASK, VALUE) (*(volatile uint64_t*)(ADDR) = (*(volatile uint64_t*)(ADDR) & ~(uint64_t)(MASK)) | ((uint64_t)(VALUE) & (uint64_t)(MASK)))
 
+static inline uint64_t BIT_GET_RANGE(uint64_t VAR, unsigned HIGH, unsigned LOW)
+{
+	unsigned i;
+	uint64_t mask;
+	
+	for(mask = 0, i = LOW; i <= HIGH; i ++)
+		mask |= 0x0000000000000001 << i;
+	
+	return (VAR & mask) >> LOW;
+}
+
+#define BIT_SET_RANGE(VAR, HIGH, LOW, VALUE) do \
+{ \
+	unsigned i; \
+	uint64_t mask; \
+	\
+	for(mask = 0, i = (LOW); i <= (HIGH); i ++) \
+		mask |= 0x0000000000000001 << i; \
+	\
+	(VAR) = ((VAR) & ~mask) | (((VALUE) << (LOW)) & mask); \
+	\
+} while(false)
+
 static inline uint16_t REG16_GET_RANGE(uintptr_t ADDR, unsigned HIGH, unsigned LOW)
 {
 	unsigned i;
