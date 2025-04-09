@@ -49,7 +49,7 @@ static inline uint64_t BIT_GET_RANGE(uint64_t VAR, unsigned HIGH, unsigned LOW)
 	for(mask = 0, i = (LOW); i <= (HIGH); i ++) \
 		mask |= 0x0000000000000001 << i; \
 	\
-	(VAR) = ((VAR) & ~mask) | (((VALUE) << (LOW)) & mask); \
+	(VAR) = ((VAR) & ~mask) | (((uint64_t)(VALUE) << (LOW)) & mask); \
 	\
 } while(false)
 
