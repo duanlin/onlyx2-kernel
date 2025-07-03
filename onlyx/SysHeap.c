@@ -10,11 +10,11 @@
 typedef union HeapBlock
 {
 	uint8_t header[SYSHEAP_ALIGN_SIZE];
-
+	
 	struct
 	{
 		bool assigned;
-
+		
 		size_t size;
 		union HeapBlock* next;
 	};
@@ -23,106 +23,97 @@ typedef union HeapBlock
 
 
 static SysSem gHeapMutex;
+static HeapBlock* gHeadBlock;
 static HeapBlock* gFreeBlock;
 
 
 int initSysHeap(void* heap, size_t size)
 {
-	gFreeBlock = (HeapBlock*)heap;
-	memset(gFreeBlock, 0, sizeof(HeapBlock));
+	gHeadBlock = (HeapBlock*)heap;
+	memset(gHeadBlock, 0, sizeof(HeapBlock));
 	
-	gFreeBlock->size = size - sizeof(HeapBlock);
-	gFreeBlock->next = gFreeBlock;
+	gHeadBlock->size = size;
+	gFreeBlock = gHeadBlock;
 	
 	if(initMutex(&gHeapMutex))
-		return 1;
+		return -1;
 	
 	return 0;
 }
 
 void* heapAlloc(size_t size)
 {
-	HeapBlock* block;
-	HeapBlock* free;
 	HeapBlock* next;
+	HeapBlock* free;
 	
-	if(!size)
-		return NULL;
-
+	// Block header
+	size += sizeof(HeapBlock);
+	
+	// Alignment
+	if(size % SYSHEAP_ALIGN_SIZE)
+		size += SYSHEAP_ALIGN_SIZE - size % SYSHEAP_ALIGN_SIZE;
+	
 	if(lockMutex(&gHeapMutex))
 		return NULL;
 	
-	// Merge next free
-	next = gFreeBlock->next;
-	if(!next->assigned && (next != gFreeBlock))
-	{
-		gFreeBlock->next = next->next;
-		gFreeBlock->size = sizeof(HeapBlock) + next->size;
-	}
-
-	// Alignment
-	if(size < SYSHEAP_ALIGN_SIZE)
-		size = SYSHEAP_ALIGN_SIZE;
-	else if(size % SYSHEAP_ALIGN_SIZE)
-		size += SYSHEAP_ALIGN_SIZE - size % SYSHEAP_ALIGN_SIZE;
-
-	// Suitable
-	if(gFreeBlock->size >= size + sizeof(HeapBlock))
-	{
-		// Prepare next free
-		free = (HeapBlock*)((uint8_t*)gFreeBlock + sizeof(HeapBlock) + size);
-		free->assigned = false;
-		free->next = gFreeBlock->next;
-		free->size = gFreeBlock->size - size - sizeof(HeapBlock);
-
-		// Assignment
-		block = gFreeBlock;
-		gFreeBlock = free;
-
-		block->size = size;
-		block->next = free;
-		block->assigned = true;
-
-		giveMutex(&gHeapMutex);
-		
-		return (uint8_t*)block + sizeof(HeapBlock);
-	}
 	// Search free
-	else
+	free = gFreeBlock; while(!free->assigned)
 	{
-		block = (HeapBlock*)((uint8_t*)gFreeBlock + sizeof(HeapBlock) + size);
-
-		while(block != gFreeBlock)
+		// Merge fragments
+		next = free->next; while(next != NULL)
 		{
-			if(block->assigned)
+			if(!next->assigned)
 			{
-				block = block->next;
-
-				continue;
-			}
-
-			if(block->size >= size + sizeof(HeapBlock))
-			{
-				// Prepare next free
-				free = (HeapBlock*)((uint8_t*)block + sizeof(HeapBlock) + size);
-				free->assigned = false;
-				free->next = block->next;
-				free->size = block->size - size - sizeof(HeapBlock);
-
-				// Assignment
-				gFreeBlock = free;
-
-				block->size = size;
-				block->next = free;
-				block->assigned = true;
+				free->next = next->next;
+				free->size += next->size;
 				
-				giveMutex(&gHeapMutex);
-
-				return (uint8_t*)block + sizeof(HeapBlock);
+				next = free->next;
 			}
-
-			block = block->next;
+			else
+				break;
 		}
+		
+		// Enough
+		if(free->size > size)
+		{
+			gFreeBlock = (HeapBlock*)((uint8_t*)free + size);
+			memset(gFreeBlock, 0, sizeof(HeapBlock));
+			
+			gFreeBlock->size = free->size - size;
+			gFreeBlock->next = free->next;
+			
+			free->size = size;
+			free->assigned = true;
+			free->next = gFreeBlock;
+			
+			giveMutex(&gHeapMutex);
+			
+			return (uint8_t*)free + sizeof(HeapBlock);
+		}
+		// Just fit
+		else if(free->size == size)
+		{
+			if(free->next != NULL)
+				gFreeBlock = free->next;
+			else
+				gFreeBlock = gHeadBlock;
+			
+			free->assigned = true;
+			
+			giveMutex(&gHeapMutex);
+			
+			return (uint8_t*)free + sizeof(HeapBlock);
+		}
+		
+		// Search next
+		if(free->next != NULL)
+			free = free->next;
+		else
+			free = gHeadBlock;
+		
+		// Not found
+		if(free == gFreeBlock)
+			break;
 	}
 	
 	giveMutex(&gHeapMutex);
@@ -132,31 +123,31 @@ void* heapAlloc(size_t size)
 
 int heapFree(void* p)
 {
-	HeapBlock* block;
+	HeapBlock* free;
 	HeapBlock* next;
-
-	if(!p)
-		return -1;
-
-	block = (HeapBlock*)((uint8_t*)p - sizeof(HeapBlock));
+	
+	free = (HeapBlock*)((uint8_t*)p - sizeof(HeapBlock));
 	
 	if(lockMutex(&gHeapMutex))
-		return -2;
+		return -1;
 	
-	block->assigned = 0;
-
-	// Merge next free
-	next = block->next;
-	if(!next->assigned && (next != block))
+	free->assigned = false;
+	
+	// Merge fragments
+	next = free->next; while(next != NULL)
 	{
-		block->next = next->next;
-		block->size = sizeof(HeapBlock) + next->size;
+		if(!next->assigned)
+		{
+			free->next = next->next;
+			free->size += next->size;
+			
+			next = free->next;
+		}
+		else
+			break;
 	}
-
-	if(next == gFreeBlock)
-		gFreeBlock = block;
 	
 	giveMutex(&gHeapMutex);
-
+	
 	return 0;
 }
