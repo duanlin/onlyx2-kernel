@@ -140,10 +140,20 @@ static inline int ASN1_ENCODE_LEN(uint8_t* p, size_t size, Asn1Len* asn1len)
 		
 		asn1len->wide = 1;
 	}
+	else if(asn1len->length < 0x100)
+	{
+		if(size < 2)
+			return -2;
+		
+		ENCODE_BYTE(p, 0x81);
+		ENCODE_BYTE(p + 1, asn1len->length);
+		
+		asn1len->wide = 2;
+	}
 	else if(asn1len->length < 0x10000)
 	{
 		if(size < 3)
-			return -2;
+			return -3;
 		
 		ENCODE_BYTE(p, 0x82);
 		ENCODE_WORD(p + 1, asn1len->length);
@@ -151,7 +161,7 @@ static inline int ASN1_ENCODE_LEN(uint8_t* p, size_t size, Asn1Len* asn1len)
 		asn1len->wide = 3;
 	}
 	else
-		return -3;
+		return -4;
 	
 	return 0;
 }
